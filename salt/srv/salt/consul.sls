@@ -2,6 +2,8 @@
 {% set bind_addr = salt['grains.get']('bind_addr') %}
 {% set join_addr = salt['grains.get']('join_addr') %}
 {% set num_servers = salt['grains.get']('num_servers') %}
+{% set dc_id = salt['grains.get']('dc_id') %}
+{% set join_wan_ip = salt['grains.get']('join_wan_ip') %}
 
 consul:
   group.present:
@@ -23,12 +25,16 @@ consul:
     - require:
       - user: consul
   cmd.run:
-{% if host_name == 'consul-01' %}
-    - name: daemon -n consul -X "/usr/local/bin/consul agent -server -bootstrap-expect {{ num_servers }} -data-dir /tmp/consul -node={{ host_name }} -bind {{ bind_addr }}"
-{% else %}
-    - name: daemon -n consul -X "/usr/local/bin/consul agent -server -bootstrap-expect {{ num_servers }} -data-dir /tmp/consul -node={{ host_name }} -bind {{ bind_addr }} -join {{ join_addr }}"
-{% endif %}
+    - name: daemon -n consul -X "/usr/local/bin/consul agent -server -dc {{ dc_id }} -bootstrap-expect {{ num_servers }} -data-dir /tmp/consul -node={{ host_name }} -bind {{ bind_addr }} -join {{ join_addr }}"
     - user: consul
     - cwd: /tmp/consul
     - require:
       - file: /usr/local/bin/consul
+
+consul-join-wan:
+  cmd.run:
+    - name: sleep 20 && consul join -wan {{ join_wan_ip }}
+    - user: consul
+    - cwd: /tmp/consul
+    - require:
+      - cmd: consul
